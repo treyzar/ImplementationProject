@@ -118,6 +118,7 @@ export interface HistoryState {
 export interface EditorState {
   blocks: DocumentBlock[];
   selectedBlockId: string | null;
+  selectedBlockIds: string[];
   zoom: number;
   templateId: number | null;
   templateTitle: string;
@@ -127,12 +128,19 @@ export interface EditorState {
   historyIndex: number;
 }
 
+export type AlignMode = 'left' | 'center' | 'right' | 'top' | 'middle' | 'bottom';
+export type DistributeDirection = 'horizontal' | 'vertical';
+
 export type EditorAction =
   | { type: 'SET_BLOCKS'; payload: DocumentBlock[] }
   | { type: 'ADD_BLOCK'; payload: DocumentBlock }
   | { type: 'UPDATE_BLOCK'; payload: { id: string; updates: Partial<DocumentBlock> } }
+  | { type: 'UPDATE_BLOCKS'; payload: { ids: string[]; updates: Partial<DocumentBlock>[] } }
   | { type: 'DELETE_BLOCK'; payload: string }
+  | { type: 'DELETE_BLOCKS'; payload: string[] }
   | { type: 'SELECT_BLOCK'; payload: string | null }
+  | { type: 'SELECT_BLOCKS'; payload: string[] }
+  | { type: 'TOGGLE_BLOCK_SELECTION'; payload: string }
   | { type: 'SET_ZOOM'; payload: number }
   | { type: 'SET_TEMPLATE_INFO'; payload: { id: number | null; title: string; description: string } }
   | { type: 'LOAD_TEMPLATE'; payload: DocumentTemplateDTO }
@@ -231,5 +239,128 @@ export function createDefaultBlock(type: BlockType, x: number = 50, y: number = 
       };
     default:
       return baseBlock;
+  }
+}
+
+interface BoundingBox {
+  minX: number;
+  maxX: number;
+  minY: number;
+  maxY: number;
+}
+
+function getBoundingBox(blocks: DocumentBlock[], selectedIds: string[]): BoundingBox {
+  const selectedBlocks = blocks.filter(b => selectedIds.includes(b.id));
+  if (selectedBlocks.length === 0) {
+    return { minX: 0, maxX: 0, minY: 0, maxY: 0 };
+  }
+  
+  let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+  
+  for (const block of selectedBlocks) {
+    minX = Math.min(minX, block.x);
+    minY = Math.min(minY, block.y);
+    maxX = Math.max(maxX, block.x + block.width);
+    maxY = Math.max(maxY, block.y + block.height);
+  }
+  
+  return { minX, maxX, minY, maxY };
+}
+
+export function alignBlocks(
+  blocks: DocumentBlock[],
+  selectedIds: string[],
+  mode: AlignMode
+): DocumentBlock[] {
+  if (selectedIds.length < 2) return blocks;
+  
+  const bbox = getBoundingBox(blocks, selectedIds);
+  
+  return blocks.map(block => {
+    if (!selectedIds.includes(block.id)) return block;
+    
+    let newX = block.x;
+    let newY = block.y;
+    
+    switch (mode) {
+      case 'left':
+        newX = bbox.minX;
+        break;
+      case 'center':
+        const centerX = (bbox.minX + bbox.maxX) / 2;
+        newX = centerX - block.width / 2;
+        break;
+      case 'right':
+        newX = bbox.maxX - block.width;
+        break;
+      case 'top':
+        newY = bbox.minY;
+        break;
+      case 'middle':
+        const centerY = (bbox.minY + bbox.maxY) / 2;
+        newY = centerY - block.height / 2;
+        break;
+      case 'bottom':
+        newY = bbox.maxY - block.height;
+        break;
+    }
+    
+    return { ...block, x: newX, y: newY };
+  });
+}
+
+export function distributeBlocks(
+  blocks: DocumentBlock[],
+  selectedIds: string[],
+  direction: DistributeDirection
+): DocumentBlock[] {
+  if (selectedIds.length < 3) return blocks;
+  
+  const selectedBlocks = blocks.filter(b => selectedIds.includes(b.id));
+  
+  if (direction === 'horizontal') {
+    const sorted = [...selectedBlocks].sort((a, b) => a.x - b.x);
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    
+    const totalWidth = sorted.reduce((sum, b) => sum + b.width, 0);
+    const totalSpace = (last.x + last.width) - first.x;
+    const gap = (totalSpace - totalWidth) / (sorted.length - 1);
+    
+    let currentX = first.x;
+    const positionMap = new Map<string, number>();
+    
+    for (const block of sorted) {
+      positionMap.set(block.id, currentX);
+      currentX += block.width + gap;
+    }
+    
+    return blocks.map(block => {
+      if (!selectedIds.includes(block.id)) return block;
+      const newX = positionMap.get(block.id);
+      return newX !== undefined ? { ...block, x: newX } : block;
+    });
+  } else {
+    const sorted = [...selectedBlocks].sort((a, b) => a.y - b.y);
+    const first = sorted[0];
+    const last = sorted[sorted.length - 1];
+    
+    const totalHeight = sorted.reduce((sum, b) => sum + b.height, 0);
+    const totalSpace = (last.y + last.height) - first.y;
+    const gap = (totalSpace - totalHeight) / (sorted.length - 1);
+    
+    let currentY = first.y;
+    const positionMap = new Map<string, number>();
+    
+    for (const block of sorted) {
+      positionMap.set(block.id, currentY);
+      currentY += block.height + gap;
+    }
+    
+    return blocks.map(block => {
+      if (!selectedIds.includes(block.id)) return block;
+      const newY = positionMap.get(block.id);
+      return newY !== undefined ? { ...block, y: newY } : block;
+    });
   }
 }

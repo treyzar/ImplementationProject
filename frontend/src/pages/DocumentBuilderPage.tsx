@@ -8,6 +8,10 @@ import {
   DEFAULT_DOCUMENT_DATA,
   createDefaultBlock,
   HistoryState,
+  AlignMode,
+  DistributeDirection,
+  alignBlocks,
+  distributeBlocks,
 } from '../components/document-builder/types';
 import { Toolbar } from '../components/document-builder/Toolbar';
 import { SidebarBlocks } from '../components/document-builder/SidebarBlocks';
@@ -23,35 +27,41 @@ import {
 
 const MAX_HISTORY = 50;
 
+function pushHistory(state: EditorState, newBlocks: DocumentBlock[]): { history: HistoryState[]; historyIndex: number } {
+  const newHistory = [
+    ...state.history.slice(0, state.historyIndex + 1),
+    { blocks: newBlocks, zoom: state.zoom },
+  ].slice(-MAX_HISTORY);
+  return {
+    history: newHistory,
+    historyIndex: newHistory.length - 1,
+  };
+}
+
 function editorReducer(state: EditorState, action: EditorAction): EditorState {
   switch (action.type) {
     case 'SET_BLOCKS': {
-      const newHistory = [
-        ...state.history.slice(0, state.historyIndex + 1),
-        { blocks: action.payload, zoom: state.zoom },
-      ].slice(-MAX_HISTORY);
+      const { history, historyIndex } = pushHistory(state, action.payload);
       return {
         ...state,
         blocks: action.payload,
         isDirty: true,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
+        history,
+        historyIndex,
       };
     }
 
     case 'ADD_BLOCK': {
       const newBlocks = [...state.blocks, action.payload];
-      const newHistory = [
-        ...state.history.slice(0, state.historyIndex + 1),
-        { blocks: newBlocks, zoom: state.zoom },
-      ].slice(-MAX_HISTORY);
+      const { history, historyIndex } = pushHistory(state, newBlocks);
       return {
         ...state,
         blocks: newBlocks,
         selectedBlockId: action.payload.id,
+        selectedBlockIds: [action.payload.id],
         isDirty: true,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
+        history,
+        historyIndex,
       };
     }
 
@@ -59,32 +69,61 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       const newBlocks = state.blocks.map((block) =>
         block.id === action.payload.id ? { ...block, ...action.payload.updates } : block
       );
-      const newHistory = [
-        ...state.history.slice(0, state.historyIndex + 1),
-        { blocks: newBlocks, zoom: state.zoom },
-      ].slice(-MAX_HISTORY);
+      const { history, historyIndex } = pushHistory(state, newBlocks);
       return {
         ...state,
         blocks: newBlocks,
         isDirty: true,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
+        history,
+        historyIndex,
+      };
+    }
+
+    case 'UPDATE_BLOCKS': {
+      const { ids, updates } = action.payload;
+      const updateMap = new Map<string, Partial<DocumentBlock>>();
+      ids.forEach((id, idx) => updateMap.set(id, updates[idx]));
+      
+      const newBlocks = state.blocks.map((block) => {
+        const blockUpdates = updateMap.get(block.id);
+        return blockUpdates ? { ...block, ...blockUpdates } : block;
+      });
+      const { history, historyIndex } = pushHistory(state, newBlocks);
+      return {
+        ...state,
+        blocks: newBlocks,
+        isDirty: true,
+        history,
+        historyIndex,
       };
     }
 
     case 'DELETE_BLOCK': {
       const newBlocks = state.blocks.filter((block) => block.id !== action.payload);
-      const newHistory = [
-        ...state.history.slice(0, state.historyIndex + 1),
-        { blocks: newBlocks, zoom: state.zoom },
-      ].slice(-MAX_HISTORY);
+      const { history, historyIndex } = pushHistory(state, newBlocks);
       return {
         ...state,
         blocks: newBlocks,
         selectedBlockId: state.selectedBlockId === action.payload ? null : state.selectedBlockId,
+        selectedBlockIds: state.selectedBlockIds.filter(id => id !== action.payload),
         isDirty: true,
-        history: newHistory,
-        historyIndex: newHistory.length - 1,
+        history,
+        historyIndex,
+      };
+    }
+
+    case 'DELETE_BLOCKS': {
+      const idsToDelete = new Set(action.payload);
+      const newBlocks = state.blocks.filter((block) => !idsToDelete.has(block.id));
+      const { history, historyIndex } = pushHistory(state, newBlocks);
+      return {
+        ...state,
+        blocks: newBlocks,
+        selectedBlockId: idsToDelete.has(state.selectedBlockId || '') ? null : state.selectedBlockId,
+        selectedBlockIds: [],
+        isDirty: true,
+        history,
+        historyIndex,
       };
     }
 
@@ -92,7 +131,28 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       return {
         ...state,
         selectedBlockId: action.payload,
+        selectedBlockIds: action.payload ? [action.payload] : [],
       };
+
+    case 'SELECT_BLOCKS':
+      return {
+        ...state,
+        selectedBlockIds: action.payload,
+        selectedBlockId: action.payload.length > 0 ? action.payload[0] : null,
+      };
+
+    case 'TOGGLE_BLOCK_SELECTION': {
+      const blockId = action.payload;
+      const isSelected = state.selectedBlockIds.includes(blockId);
+      const newSelectedIds = isSelected
+        ? state.selectedBlockIds.filter(id => id !== blockId)
+        : [...state.selectedBlockIds, blockId];
+      return {
+        ...state,
+        selectedBlockIds: newSelectedIds,
+        selectedBlockId: newSelectedIds.length > 0 ? newSelectedIds[0] : null,
+      };
+    }
 
     case 'SET_ZOOM':
       return {
@@ -120,6 +180,7 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
         templateTitle: template.title,
         templateDescription: template.description,
         selectedBlockId: null,
+        selectedBlockIds: [],
         isDirty: false,
         history: initialHistory,
         historyIndex: 0,
@@ -161,6 +222,7 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
       return {
         blocks: [],
         selectedBlockId: null,
+        selectedBlockIds: [],
         zoom: 100,
         templateId: null,
         templateTitle: '',
@@ -179,6 +241,7 @@ function editorReducer(state: EditorState, action: EditorAction): EditorState {
 const initialState: EditorState = {
   blocks: [],
   selectedBlockId: null,
+  selectedBlockIds: [],
   zoom: 100,
   templateId: null,
   templateTitle: '',
@@ -199,8 +262,12 @@ export const DocumentBuilderPage: React.FC = () => {
     dispatch({ type: 'ADD_BLOCK', payload: newBlock });
   }, []);
 
-  const handleSelectBlock = useCallback((id: string | null) => {
-    dispatch({ type: 'SELECT_BLOCK', payload: id });
+  const handleSelectBlock = useCallback((id: string | null, addToSelection: boolean = false) => {
+    if (addToSelection && id) {
+      dispatch({ type: 'TOGGLE_BLOCK_SELECTION', payload: id });
+    } else {
+      dispatch({ type: 'SELECT_BLOCK', payload: id });
+    }
   }, []);
 
   const handleUpdateBlock = useCallback((id: string, updates: Partial<DocumentBlock>) => {
@@ -217,10 +284,12 @@ export const DocumentBuilderPage: React.FC = () => {
   );
 
   const handleDeleteBlock = useCallback(() => {
-    if (state.selectedBlockId) {
+    if (state.selectedBlockIds.length > 1) {
+      dispatch({ type: 'DELETE_BLOCKS', payload: state.selectedBlockIds });
+    } else if (state.selectedBlockId) {
       dispatch({ type: 'DELETE_BLOCK', payload: state.selectedBlockId });
     }
-  }, [state.selectedBlockId]);
+  }, [state.selectedBlockId, state.selectedBlockIds]);
 
   const handleTitleChange = useCallback((title: string) => {
     dispatch({
@@ -312,11 +381,25 @@ export const DocumentBuilderPage: React.FC = () => {
     dispatch({ type: 'RESET' });
   }, [state.isDirty]);
 
+  const handleAlign = useCallback((mode: AlignMode) => {
+    if (state.selectedBlockIds.length < 2) return;
+    const newBlocks = alignBlocks(state.blocks, state.selectedBlockIds, mode);
+    dispatch({ type: 'SET_BLOCKS', payload: newBlocks });
+  }, [state.blocks, state.selectedBlockIds]);
+
+  const handleDistribute = useCallback((direction: DistributeDirection) => {
+    if (state.selectedBlockIds.length < 3) return;
+    const newBlocks = distributeBlocks(state.blocks, state.selectedBlockIds, direction);
+    dispatch({ type: 'SET_BLOCKS', payload: newBlocks });
+  }, [state.blocks, state.selectedBlockIds]);
+
   const canUndo = state.historyIndex > 0;
   const canRedo = state.historyIndex < state.history.length - 1;
+  const canAlign = state.selectedBlockIds.length >= 2;
+  const canDistribute = state.selectedBlockIds.length >= 3;
 
   return (
-    <div style={styles.container}>
+    <div className="flex flex-col h-screen bg-[var(--color-sidebar)] text-gray-100 font-sans">
       <Toolbar
         templateTitle={state.templateTitle}
         templateDescription={state.templateDescription}
@@ -324,6 +407,9 @@ export const DocumentBuilderPage: React.FC = () => {
         canUndo={canUndo}
         canRedo={canRedo}
         isDirty={state.isDirty}
+        canAlign={canAlign}
+        canDistribute={canDistribute}
+        selectedCount={state.selectedBlockIds.length}
         onTitleChange={handleTitleChange}
         onDescriptionChange={handleDescriptionChange}
         onSave={handleSave}
@@ -333,14 +419,23 @@ export const DocumentBuilderPage: React.FC = () => {
         onRedo={handleRedo}
         onZoomChange={handleZoomChange}
         onNewTemplate={handleNewTemplate}
+        onAlignLeft={() => handleAlign('left')}
+        onAlignCenter={() => handleAlign('center')}
+        onAlignRight={() => handleAlign('right')}
+        onAlignTop={() => handleAlign('top')}
+        onAlignMiddle={() => handleAlign('middle')}
+        onAlignBottom={() => handleAlign('bottom')}
+        onDistributeHorizontal={() => handleDistribute('horizontal')}
+        onDistributeVertical={() => handleDistribute('vertical')}
       />
 
-      <div style={styles.mainContent}>
+      <div className="flex flex-1 overflow-hidden">
         <SidebarBlocks onAddBlock={handleAddBlock} />
 
         <DocumentCanvas
           blocks={state.blocks}
           selectedBlockId={state.selectedBlockId}
+          selectedBlockIds={state.selectedBlockIds}
           zoom={state.zoom}
           pageWidth={DEFAULT_DOCUMENT_DATA.pageWidth}
           pageHeight={DEFAULT_DOCUMENT_DATA.pageHeight}
@@ -348,7 +443,7 @@ export const DocumentBuilderPage: React.FC = () => {
           onUpdateBlock={handleUpdateBlock}
         />
 
-        <div style={styles.rightPanels}>
+        <div className="flex flex-col">
           <InspectorPanel
             selectedBlock={selectedBlock}
             onUpdateBlock={handleUpdateSelectedBlock}
@@ -359,26 +454,6 @@ export const DocumentBuilderPage: React.FC = () => {
       </div>
     </div>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  container: {
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100vh',
-    backgroundColor: '#1a252f',
-    color: '#ecf0f1',
-    fontFamily: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif',
-  },
-  mainContent: {
-    display: 'flex',
-    flex: 1,
-    overflow: 'hidden',
-  },
-  rightPanels: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
 };
 
 export default DocumentBuilderPage;

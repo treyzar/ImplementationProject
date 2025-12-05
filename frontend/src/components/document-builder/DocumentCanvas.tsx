@@ -4,16 +4,18 @@ import { DocumentBlock, TableData } from './types';
 interface DocumentCanvasProps {
   blocks: DocumentBlock[];
   selectedBlockId: string | null;
+  selectedBlockIds: string[];
   zoom: number;
   pageWidth: number;
   pageHeight: number;
-  onSelectBlock: (id: string | null) => void;
+  onSelectBlock: (id: string | null, addToSelection?: boolean) => void;
   onUpdateBlock: (id: string, updates: Partial<DocumentBlock>) => void;
 }
 
 export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
   blocks,
   selectedBlockId,
+  selectedBlockIds,
   zoom,
   pageWidth,
   pageHeight,
@@ -28,6 +30,8 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
 
   const scale = zoom / 100;
 
+  const isBlockSelected = (blockId: string) => selectedBlockIds.includes(blockId);
+
   const handleCanvasClick = (e: React.MouseEvent) => {
     if (e.target === canvasRef.current || (e.target as HTMLElement).classList.contains('canvas-page')) {
       onSelectBlock(null);
@@ -36,7 +40,9 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
 
   const handleBlockMouseDown = (e: React.MouseEvent, block: DocumentBlock) => {
     e.stopPropagation();
-    onSelectBlock(block.id);
+    
+    const isShiftPressed = e.shiftKey;
+    onSelectBlock(block.id, isShiftPressed);
 
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return;
@@ -50,7 +56,7 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
 
   const handleResizeMouseDown = (e: React.MouseEvent, block: DocumentBlock) => {
     e.stopPropagation();
-    onSelectBlock(block.id);
+    onSelectBlock(block.id, false);
 
     setResizing(block.id);
     setResizeStart({
@@ -144,7 +150,7 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                 style={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }}
               />
             ) : (
-              '🖼️ Изображение'
+              'Изображение'
             )}
           </div>
         );
@@ -205,21 +211,34 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
     );
   };
 
+  const getBlockSelectionStyles = (block: DocumentBlock): React.CSSProperties => {
+    const isSelected = isBlockSelected(block.id);
+    const isPrimarySelection = block.id === selectedBlockId;
+    
+    if (!isSelected) {
+      return {};
+    }
+    
+    return {
+      boxShadow: isPrimarySelection 
+        ? '0 0 0 2px var(--color-primary), 0 0 0 4px rgba(231, 63, 12, 0.3)' 
+        : '0 0 0 2px var(--color-primary-light)',
+    };
+  };
+
   return (
     <div
-      style={styles.canvasContainer}
+      className="flex-1 bg-[#1a252f] overflow-auto flex items-start justify-center p-10"
       onMouseMove={handleMouseMove}
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
     >
       <div
         ref={canvasRef}
-        className="canvas-page"
+        className="canvas-page bg-white shadow-xl flex-shrink-0 relative"
         style={{
-          ...styles.page,
           width: pageWidth * scale,
           height: pageHeight * scale,
-          transform: `scale(1)`,
         }}
         onClick={handleCanvasClick}
       >
@@ -249,17 +268,17 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
                   border: `${block.style.borderWidth || 0}px solid ${block.style.borderColor || 'transparent'}`,
                   borderRadius: block.style.borderRadius || 0,
                   cursor: dragging === block.id ? 'grabbing' : 'grab',
-                  boxShadow: selectedBlockId === block.id ? '0 0 0 2px #3498db' : 'none',
                   boxSizing: 'border-box',
                   overflow: 'hidden',
+                  ...getBlockSelectionStyles(block),
                 }}
                 onMouseDown={(e) => handleBlockMouseDown(e, block)}
               >
                 {renderBlockContent(block)}
 
-                {selectedBlockId === block.id && (
+                {isBlockSelected(block.id) && (
                   <div
-                    style={styles.resizeHandle}
+                    className="absolute -right-1 -bottom-1 w-3 h-3 bg-[var(--color-primary)] cursor-nwse-resize rounded-sm border-2 border-white"
                     onMouseDown={(e) => handleResizeMouseDown(e, block)}
                   />
                 )}
@@ -267,37 +286,12 @@ export const DocumentCanvas: React.FC<DocumentCanvasProps> = ({
             ))}
         </div>
       </div>
+      
+      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-[var(--color-sidebar)] px-4 py-2 rounded-lg text-xs text-gray-400 shadow-lg">
+        Shift+клик для множественного выбора
+      </div>
     </div>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  canvasContainer: {
-    flex: 1,
-    backgroundColor: '#1a252f',
-    overflow: 'auto',
-    display: 'flex',
-    alignItems: 'flex-start',
-    justifyContent: 'center',
-    padding: '40px',
-  },
-  page: {
-    backgroundColor: '#ffffff',
-    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.3)',
-    position: 'relative',
-    flexShrink: 0,
-  },
-  resizeHandle: {
-    position: 'absolute',
-    right: -4,
-    bottom: -4,
-    width: 12,
-    height: 12,
-    backgroundColor: '#3498db',
-    cursor: 'nwse-resize',
-    borderRadius: '2px',
-    border: '2px solid white',
-  },
 };
 
 export default DocumentCanvas;

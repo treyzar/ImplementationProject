@@ -44,6 +44,9 @@ interface ToolbarProps {
   canUndo: boolean;
   canRedo: boolean;
   isDirty: boolean;
+  canAlign?: boolean;
+  canDistribute?: boolean;
+  selectedCount?: number;
   onTitleChange: (title: string) => void;
   onDescriptionChange: (description: string) => void;
   onSave: () => void;
@@ -69,6 +72,9 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   canUndo,
   canRedo,
   isDirty,
+  canAlign = false,
+  canDistribute = false,
+  selectedCount = 0,
   onTitleChange,
   onSave,
   onLoadTemplate,
@@ -237,18 +243,25 @@ export const Toolbar: React.FC<ToolbarProps> = ({
           <Separator orientation="vertical" className="h-6 mx-1" />
 
           <div className="hidden md:flex items-center gap-1">
+            {selectedCount >= 2 && (
+              <span className="text-xs text-gray-400 mr-2">
+                {selectedCount} выбрано
+              </span>
+            )}
+            
             <ToggleGroup type="single" size="sm" variant="outline">
               <Tooltip>
                 <TooltipTrigger asChild>
                   <ToggleGroupItem
                     value="align-left"
                     onClick={onAlignLeft}
+                    disabled={!canAlign}
                     aria-label="Выровнять по левому краю"
                   >
                     <AlignLeft className="h-4 w-4" />
                   </ToggleGroupItem>
                 </TooltipTrigger>
-                <TooltipContent>По левому краю</TooltipContent>
+                <TooltipContent>По левому краю (выберите 2+ блока)</TooltipContent>
               </Tooltip>
 
               <Tooltip>
@@ -256,12 +269,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   <ToggleGroupItem
                     value="align-center"
                     onClick={onAlignCenter}
+                    disabled={!canAlign}
                     aria-label="Выровнять по центру"
                   >
                     <AlignCenter className="h-4 w-4" />
                   </ToggleGroupItem>
                 </TooltipTrigger>
-                <TooltipContent>По центру</TooltipContent>
+                <TooltipContent>По центру (выберите 2+ блока)</TooltipContent>
               </Tooltip>
 
               <Tooltip>
@@ -269,12 +283,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   <ToggleGroupItem
                     value="align-right"
                     onClick={onAlignRight}
+                    disabled={!canAlign}
                     aria-label="Выровнять по правому краю"
                   >
                     <AlignRight className="h-4 w-4" />
                   </ToggleGroupItem>
                 </TooltipTrigger>
-                <TooltipContent>По правому краю</TooltipContent>
+                <TooltipContent>По правому краю (выберите 2+ блока)</TooltipContent>
               </Tooltip>
             </ToggleGroup>
 
@@ -284,12 +299,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   <ToggleGroupItem
                     value="align-top"
                     onClick={onAlignTop}
+                    disabled={!canAlign}
                     aria-label="Выровнять по верхнему краю"
                   >
                     <AlignStartVertical className="h-4 w-4" />
                   </ToggleGroupItem>
                 </TooltipTrigger>
-                <TooltipContent>По верхнему краю</TooltipContent>
+                <TooltipContent>По верхнему краю (выберите 2+ блока)</TooltipContent>
               </Tooltip>
 
               <Tooltip>
@@ -297,12 +313,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   <ToggleGroupItem
                     value="align-middle"
                     onClick={onAlignMiddle}
+                    disabled={!canAlign}
                     aria-label="Выровнять по середине"
                   >
                     <AlignCenterVertical className="h-4 w-4" />
                   </ToggleGroupItem>
                 </TooltipTrigger>
-                <TooltipContent>По середине</TooltipContent>
+                <TooltipContent>По середине (выберите 2+ блока)</TooltipContent>
               </Tooltip>
 
               <Tooltip>
@@ -310,12 +327,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   <ToggleGroupItem
                     value="align-bottom"
                     onClick={onAlignBottom}
+                    disabled={!canAlign}
                     aria-label="Выровнять по нижнему краю"
                   >
                     <AlignEndVertical className="h-4 w-4" />
                   </ToggleGroupItem>
                 </TooltipTrigger>
-                <TooltipContent>По нижнему краю</TooltipContent>
+                <TooltipContent>По нижнему краю (выберите 2+ блока)</TooltipContent>
               </Tooltip>
             </ToggleGroup>
 
@@ -325,12 +343,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   <ToggleGroupItem
                     value="distribute-h"
                     onClick={onDistributeHorizontal}
+                    disabled={!canDistribute}
                     aria-label="Распределить по горизонтали"
                   >
                     <AlignHorizontalSpaceAround className="h-4 w-4" />
                   </ToggleGroupItem>
                 </TooltipTrigger>
-                <TooltipContent>Распределить по горизонтали</TooltipContent>
+                <TooltipContent>Распределить по горизонтали (выберите 3+ блока)</TooltipContent>
               </Tooltip>
 
               <Tooltip>
@@ -338,12 +357,13 @@ export const Toolbar: React.FC<ToolbarProps> = ({
                   <ToggleGroupItem
                     value="distribute-v"
                     onClick={onDistributeVertical}
+                    disabled={!canDistribute}
                     aria-label="Распределить по вертикали"
                   >
                     <AlignVerticalSpaceAround className="h-4 w-4" />
                   </ToggleGroupItem>
                 </TooltipTrigger>
-                <TooltipContent>Распределить по вертикали</TooltipContent>
+                <TooltipContent>Распределить по вертикали (выберите 3+ блока)</TooltipContent>
               </Tooltip>
             </ToggleGroup>
           </div>
