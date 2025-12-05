@@ -1,5 +1,10 @@
 import React from 'react';
+import { Type, Table2, Image, PenLine, Square } from 'lucide-react';
 import { BlockType } from './types';
+import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
+import { ScrollArea } from '@/components/ui/scroll-area';
+import { Button } from '@/components/ui/button';
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip';
 
 interface SidebarBlocksProps {
   onAddBlock: (type: BlockType) => void;
@@ -7,7 +12,7 @@ interface SidebarBlocksProps {
 
 interface BlockOption {
   type: BlockType;
-  icon: string;
+  icon: React.ReactNode;
   label: string;
   description: string;
 }
@@ -15,31 +20,31 @@ interface BlockOption {
 const blockOptions: BlockOption[] = [
   {
     type: 'text',
-    icon: '📝',
+    icon: <Type className="w-5 h-5" />,
     label: 'Текст',
     description: 'Текстовый блок',
   },
   {
     type: 'table',
-    icon: '📊',
+    icon: <Table2 className="w-5 h-5" />,
     label: 'Таблица',
     description: 'Табличный блок',
   },
   {
     type: 'image',
-    icon: '🖼️',
+    icon: <Image className="w-5 h-5" />,
     label: 'Изображение',
     description: 'Блок изображения',
   },
   {
     type: 'signature',
-    icon: '✍️',
+    icon: <PenLine className="w-5 h-5" />,
     label: 'Подпись',
     description: 'Поле для подписи',
   },
   {
     type: 'rectangle',
-    icon: '⬜',
+    icon: <Square className="w-5 h-5" />,
     label: 'Прямоугольник',
     description: 'Геометрическая фигура',
   },
@@ -47,87 +52,46 @@ const blockOptions: BlockOption[] = [
 
 export const SidebarBlocks: React.FC<SidebarBlocksProps> = ({ onAddBlock }) => {
   return (
-    <div style={styles.sidebar}>
-      <div style={styles.header}>
-        <h3 style={styles.title}>Блоки</h3>
-      </div>
+    <Card className="w-[180px] h-full rounded-none border-t-0 border-b-0 border-l-0 flex flex-col">
+      <CardHeader className="border-b border-[var(--color-border-dark)] pb-4">
+        <CardTitle className="tracking-wider">Блоки</CardTitle>
+      </CardHeader>
       
-      <div style={styles.blocksList}>
-        {blockOptions.map((option) => (
-          <div
-            key={option.type}
-            style={styles.blockItem}
-            onClick={() => onAddBlock(option.type)}
-            title={option.description}
-          >
-            <span style={styles.blockIcon}>{option.icon}</span>
-            <span style={styles.blockLabel}>{option.label}</span>
-          </div>
-        ))}
-      </div>
+      <CardContent className="flex-1 p-0 overflow-hidden">
+        <ScrollArea className="h-full">
+          <TooltipProvider delayDuration={300}>
+            <div className="flex flex-col gap-2 p-3">
+              {blockOptions.map((option) => (
+                <Tooltip key={option.type}>
+                  <TooltipTrigger asChild>
+                    <Button
+                      variant="secondary"
+                      onClick={() => onAddBlock(option.type)}
+                      className="flex items-center justify-start gap-3 w-full h-auto p-3 rounded-lg bg-[var(--color-sidebar-accent)] border border-transparent text-gray-100 cursor-pointer transition-all duration-200 hover:bg-[var(--color-primary)] hover:border-[var(--color-primary)] hover:shadow-md"
+                    >
+                      <span className="text-gray-300">
+                        {option.icon}
+                      </span>
+                      <span className="text-[13px] font-medium">
+                        {option.label}
+                      </span>
+                    </Button>
+                  </TooltipTrigger>
+                  <TooltipContent side="right" className="bg-gray-900 text-gray-100">
+                    {option.description}
+                  </TooltipContent>
+                </Tooltip>
+              ))}
+            </div>
+          </TooltipProvider>
+        </ScrollArea>
+      </CardContent>
       
-      <div style={styles.hint}>
+      <div className="p-3 text-[11px] text-gray-500 text-center border-t border-[var(--color-border-dark)]">
         Нажмите на блок, чтобы добавить его на холст
       </div>
-    </div>
+    </Card>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  sidebar: {
-    width: '180px',
-    backgroundColor: '#2c3e50',
-    borderRight: '1px solid #1a252f',
-    display: 'flex',
-    flexDirection: 'column',
-    height: '100%',
-  },
-  header: {
-    padding: '16px',
-    borderBottom: '1px solid #1a252f',
-  },
-  title: {
-    margin: 0,
-    fontSize: '14px',
-    fontWeight: 600,
-    color: '#ecf0f1',
-    textTransform: 'uppercase',
-    letterSpacing: '0.5px',
-  },
-  blocksList: {
-    padding: '12px',
-    display: 'flex',
-    flexDirection: 'column',
-    gap: '8px',
-    flex: 1,
-    overflowY: 'auto',
-  },
-  blockItem: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '10px',
-    padding: '12px',
-    backgroundColor: '#34495e',
-    borderRadius: '6px',
-    cursor: 'pointer',
-    transition: 'all 0.2s ease',
-    border: '1px solid transparent',
-  },
-  blockIcon: {
-    fontSize: '20px',
-  },
-  blockLabel: {
-    color: '#ecf0f1',
-    fontSize: '13px',
-    fontWeight: 500,
-  },
-  hint: {
-    padding: '12px',
-    fontSize: '11px',
-    color: '#7f8c8d',
-    textAlign: 'center',
-    borderTop: '1px solid #1a252f',
-  },
 };
 
 export default SidebarBlocks;

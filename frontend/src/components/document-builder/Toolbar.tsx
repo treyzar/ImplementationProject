@@ -1,6 +1,41 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { DocumentTemplateListDTO } from './types';
 import { getTemplates } from '../../api/documentBuilderApi';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from '@/components/ui/tooltip';
+import { Separator } from '@/components/ui/separator';
+import { ToggleGroup, ToggleGroupItem } from '@/components/ui/toggle-group';
+import {
+  FilePlus,
+  Save,
+  FolderOpen,
+  Undo2,
+  Redo2,
+  Upload,
+  Minus,
+  Plus,
+  ChevronDown,
+  AlignLeft,
+  AlignCenter,
+  AlignRight,
+  AlignStartVertical,
+  AlignCenterVertical,
+  AlignEndVertical,
+  AlignHorizontalSpaceAround,
+  AlignVerticalSpaceAround,
+} from 'lucide-react';
 
 interface ToolbarProps {
   templateTitle: string;
@@ -18,17 +53,23 @@ interface ToolbarProps {
   onRedo: () => void;
   onZoomChange: (zoom: number) => void;
   onNewTemplate: () => void;
+  onAlignLeft?: () => void;
+  onAlignCenter?: () => void;
+  onAlignRight?: () => void;
+  onAlignTop?: () => void;
+  onAlignMiddle?: () => void;
+  onAlignBottom?: () => void;
+  onDistributeHorizontal?: () => void;
+  onDistributeVertical?: () => void;
 }
 
 export const Toolbar: React.FC<ToolbarProps> = ({
   templateTitle,
-  templateDescription,
   zoom,
   canUndo,
   canRedo,
   isDirty,
   onTitleChange,
-  onDescriptionChange,
   onSave,
   onLoadTemplate,
   onUploadFile,
@@ -36,10 +77,19 @@ export const Toolbar: React.FC<ToolbarProps> = ({
   onRedo,
   onZoomChange,
   onNewTemplate,
+  onAlignLeft,
+  onAlignCenter,
+  onAlignRight,
+  onAlignTop,
+  onAlignMiddle,
+  onAlignBottom,
+  onDistributeHorizontal,
+  onDistributeVertical,
 }) => {
   const [templates, setTemplates] = useState<DocumentTemplateListDTO[]>([]);
-  const [showLoadDropdown, setShowLoadDropdown] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [isDropdownOpen, setIsDropdownOpen] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     loadTemplatesList();
@@ -65,262 +115,295 @@ export const Toolbar: React.FC<ToolbarProps> = ({
     }
   };
 
-  const handleLoadClick = () => {
-    setShowLoadDropdown(!showLoadDropdown);
-    if (!showLoadDropdown) {
+  const handleDropdownOpen = (open: boolean) => {
+    setIsDropdownOpen(open);
+    if (open) {
       loadTemplatesList();
     }
   };
 
   const handleSelectTemplate = (templateId: number) => {
     onLoadTemplate(templateId);
-    setShowLoadDropdown(false);
+    setIsDropdownOpen(false);
+  };
+
+  const handleUploadClick = () => {
+    fileInputRef.current?.click();
   };
 
   return (
-    <div style={styles.toolbar}>
-      <div style={styles.leftSection}>
-        <button style={styles.button} onClick={onNewTemplate} title="Новый шаблон">
-          📄 Новый
-        </button>
-        
-        <div style={styles.inputGroup}>
-          <input
+    <TooltipProvider delayDuration={300}>
+      <div className="flex items-center justify-between px-4 py-2 bg-[var(--color-sidebar)] border-b border-[var(--color-border-dark)] h-14">
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={onNewTemplate}>
+                <FilePlus className="h-4 w-4" />
+                <span className="hidden sm:inline">Новый</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Новый шаблон</TooltipContent>
+          </Tooltip>
+
+          <Input
             type="text"
             value={templateTitle}
             onChange={(e) => onTitleChange(e.target.value)}
             placeholder="Название шаблона"
-            style={styles.titleInput}
+            className="w-40 sm:w-52"
           />
-        </div>
 
-        <button
-          style={{
-            ...styles.button,
-            ...styles.saveButton,
-            opacity: isDirty ? 1 : 0.7,
-          }}
-          onClick={onSave}
-          title="Сохранить шаблон"
-        >
-          💾 Сохранить {isDirty ? '*' : ''}
-        </button>
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="default"
+                size="sm"
+                onClick={onSave}
+                className={isDirty ? 'opacity-100' : 'opacity-70'}
+              >
+                <Save className="h-4 w-4" />
+                <span className="hidden sm:inline">
+                  Сохранить{isDirty ? ' *' : ''}
+                </span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Сохранить шаблон</TooltipContent>
+          </Tooltip>
 
-        <div style={styles.dropdownContainer}>
-          <button
-            style={styles.button}
-            onClick={handleLoadClick}
-            title="Загрузить шаблон"
-          >
-            📂 Загрузить {loading ? '...' : '▼'}
-          </button>
-          
-          {showLoadDropdown && (
-            <div style={styles.dropdown}>
-              {templates.length === 0 ? (
-                <div style={styles.dropdownItem}>Нет сохранённых шаблонов</div>
+          <DropdownMenu open={isDropdownOpen} onOpenChange={handleDropdownOpen}>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <DropdownMenuTrigger asChild>
+                  <Button variant="ghost" size="sm">
+                    <FolderOpen className="h-4 w-4" />
+                    <span className="hidden sm:inline">Загрузить</span>
+                    <ChevronDown className="h-3 w-3 ml-1" />
+                  </Button>
+                </DropdownMenuTrigger>
+              </TooltipTrigger>
+              <TooltipContent>Загрузить шаблон</TooltipContent>
+            </Tooltip>
+            <DropdownMenuContent align="start" className="min-w-[200px] max-h-[300px] overflow-y-auto">
+              {loading ? (
+                <DropdownMenuItem disabled>Загрузка...</DropdownMenuItem>
+              ) : templates.length === 0 ? (
+                <DropdownMenuItem disabled>
+                  Нет сохранённых шаблонов
+                </DropdownMenuItem>
               ) : (
                 templates.map((template) => (
-                  <div
+                  <DropdownMenuItem
                     key={template.id}
-                    style={styles.dropdownItem}
                     onClick={() => handleSelectTemplate(template.id)}
+                    className="cursor-pointer"
                   >
                     {template.title}
-                  </div>
+                  </DropdownMenuItem>
                 ))
               )}
-            </div>
-          )}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
-      </div>
 
-      <div style={styles.centerSection}>
-        <button
-          style={{
-            ...styles.button,
-            opacity: canUndo ? 1 : 0.5,
-          }}
-          onClick={onUndo}
-          disabled={!canUndo}
-          title="Отменить"
-        >
-          ↩️ Отменить
-        </button>
-        
-        <button
-          style={{
-            ...styles.button,
-            opacity: canRedo ? 1 : 0.5,
-          }}
-          onClick={onRedo}
-          disabled={!canRedo}
-          title="Повторить"
-        >
-          ↪️ Повторить
-        </button>
+        <div className="flex items-center gap-2">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onUndo}
+                disabled={!canUndo}
+              >
+                <Undo2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Отменить</TooltipContent>
+          </Tooltip>
 
-        <div style={styles.separator} />
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onRedo}
+                disabled={!canRedo}
+              >
+                <Redo2 className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Повторить</TooltipContent>
+          </Tooltip>
 
-        <label style={styles.fileLabel}>
-          📎 Загрузить файл
+          <Separator orientation="vertical" className="h-6 mx-1" />
+
+          <div className="hidden md:flex items-center gap-1">
+            <ToggleGroup type="single" size="sm" variant="outline">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem
+                    value="align-left"
+                    onClick={onAlignLeft}
+                    aria-label="Выровнять по левому краю"
+                  >
+                    <AlignLeft className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent>По левому краю</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem
+                    value="align-center"
+                    onClick={onAlignCenter}
+                    aria-label="Выровнять по центру"
+                  >
+                    <AlignCenter className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent>По центру</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem
+                    value="align-right"
+                    onClick={onAlignRight}
+                    aria-label="Выровнять по правому краю"
+                  >
+                    <AlignRight className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent>По правому краю</TooltipContent>
+              </Tooltip>
+            </ToggleGroup>
+
+            <ToggleGroup type="single" size="sm" variant="outline">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem
+                    value="align-top"
+                    onClick={onAlignTop}
+                    aria-label="Выровнять по верхнему краю"
+                  >
+                    <AlignStartVertical className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent>По верхнему краю</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem
+                    value="align-middle"
+                    onClick={onAlignMiddle}
+                    aria-label="Выровнять по середине"
+                  >
+                    <AlignCenterVertical className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent>По середине</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem
+                    value="align-bottom"
+                    onClick={onAlignBottom}
+                    aria-label="Выровнять по нижнему краю"
+                  >
+                    <AlignEndVertical className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent>По нижнему краю</TooltipContent>
+              </Tooltip>
+            </ToggleGroup>
+
+            <ToggleGroup type="single" size="sm" variant="outline">
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem
+                    value="distribute-h"
+                    onClick={onDistributeHorizontal}
+                    aria-label="Распределить по горизонтали"
+                  >
+                    <AlignHorizontalSpaceAround className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent>Распределить по горизонтали</TooltipContent>
+              </Tooltip>
+
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <ToggleGroupItem
+                    value="distribute-v"
+                    onClick={onDistributeVertical}
+                    aria-label="Распределить по вертикали"
+                  >
+                    <AlignVerticalSpaceAround className="h-4 w-4" />
+                  </ToggleGroupItem>
+                </TooltipTrigger>
+                <TooltipContent>Распределить по вертикали</TooltipContent>
+              </Tooltip>
+            </ToggleGroup>
+          </div>
+
+          <Separator orientation="vertical" className="h-6 mx-1 hidden md:block" />
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button variant="ghost" size="sm" onClick={handleUploadClick}>
+                <Upload className="h-4 w-4" />
+                <span className="hidden sm:inline">Загрузить файл</span>
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Загрузить PDF или DOCX файл</TooltipContent>
+          </Tooltip>
           <input
+            ref={fileInputRef}
             type="file"
             accept=".pdf,.docx"
             onChange={handleFileChange}
-            style={styles.fileInput}
+            className="hidden"
           />
-        </label>
-      </div>
+        </div>
 
-      <div style={styles.rightSection}>
-        <div style={styles.zoomControl}>
-          <button
-            style={styles.zoomButton}
-            onClick={() => onZoomChange(Math.max(50, zoom - 10))}
-            title="Уменьшить"
-          >
-            −
-          </button>
-          <span style={styles.zoomValue}>{zoom}%</span>
-          <button
-            style={styles.zoomButton}
-            onClick={() => onZoomChange(Math.min(200, zoom + 10))}
-            title="Увеличить"
-          >
-            +
-          </button>
+        <div className="flex items-center gap-1 bg-[var(--color-sidebar-accent)] rounded-lg p-1">
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => onZoomChange(Math.max(50, zoom - 10))}
+              >
+                <Minus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Уменьшить</TooltipContent>
+          </Tooltip>
+
+          <span className="text-sm text-gray-200 min-w-[50px] text-center">
+            {zoom}%
+          </span>
+
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7"
+                onClick={() => onZoomChange(Math.min(200, zoom + 10))}
+              >
+                <Plus className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Увеличить</TooltipContent>
+          </Tooltip>
         </div>
       </div>
-    </div>
+    </TooltipProvider>
   );
-};
-
-const styles: Record<string, React.CSSProperties> = {
-  toolbar: {
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    padding: '8px 16px',
-    backgroundColor: '#2c3e50',
-    borderBottom: '1px solid #1a252f',
-    height: '56px',
-    boxSizing: 'border-box',
-  },
-  leftSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  centerSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '8px',
-  },
-  rightSection: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '16px',
-  },
-  button: {
-    padding: '8px 12px',
-    backgroundColor: '#34495e',
-    color: '#ecf0f1',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '13px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    transition: 'background-color 0.2s',
-  },
-  saveButton: {
-    backgroundColor: '#27ae60',
-  },
-  inputGroup: {
-    display: 'flex',
-    flexDirection: 'column',
-  },
-  titleInput: {
-    padding: '8px 12px',
-    backgroundColor: '#34495e',
-    color: '#ecf0f1',
-    border: '1px solid #4a6278',
-    borderRadius: '4px',
-    fontSize: '14px',
-    width: '200px',
-  },
-  dropdownContainer: {
-    position: 'relative',
-  },
-  dropdown: {
-    position: 'absolute',
-    top: '100%',
-    left: '0',
-    backgroundColor: '#34495e',
-    border: '1px solid #4a6278',
-    borderRadius: '4px',
-    minWidth: '200px',
-    maxHeight: '300px',
-    overflowY: 'auto',
-    zIndex: 1000,
-    marginTop: '4px',
-  },
-  dropdownItem: {
-    padding: '10px 12px',
-    cursor: 'pointer',
-    color: '#ecf0f1',
-    borderBottom: '1px solid #4a6278',
-    transition: 'background-color 0.2s',
-  },
-  separator: {
-    width: '1px',
-    height: '24px',
-    backgroundColor: '#4a6278',
-    margin: '0 8px',
-  },
-  fileLabel: {
-    padding: '8px 12px',
-    backgroundColor: '#34495e',
-    color: '#ecf0f1',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '13px',
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-  },
-  fileInput: {
-    display: 'none',
-  },
-  zoomControl: {
-    display: 'flex',
-    alignItems: 'center',
-    gap: '4px',
-    backgroundColor: '#34495e',
-    borderRadius: '4px',
-    padding: '4px',
-  },
-  zoomButton: {
-    width: '28px',
-    height: '28px',
-    backgroundColor: 'transparent',
-    color: '#ecf0f1',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '16px',
-    display: 'flex',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  zoomValue: {
-    color: '#ecf0f1',
-    fontSize: '13px',
-    minWidth: '50px',
-    textAlign: 'center',
-  },
 };
 
 export default Toolbar;
